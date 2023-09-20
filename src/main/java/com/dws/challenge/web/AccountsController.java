@@ -59,10 +59,19 @@ public class AccountsController {
                     transferRequest.getAccountToId(),
                     transferRequest.getAmount());
 
+            // Check if the response indicates an error (e.g., "One or both accounts do not exist.")
+            if (response.startsWith("One or both accounts do not exist.")) {
+                return ResponseEntity.badRequest().body(response);
+            }
+            // Check if the response indicates an error (e.g., "Insufficient funds in the source account.")
+            if (response.startsWith("Insufficient funds in the source account.")) {
+                return ResponseEntity.badRequest().body(response);
+            }
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
 
 }
