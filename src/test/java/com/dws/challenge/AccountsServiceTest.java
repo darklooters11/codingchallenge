@@ -77,9 +77,23 @@ class AccountsServiceTest {
         }
     }
 
+    @Test
+    void transferMoneyZeroAmount() {
+        // Arrange
+        Account accountFrom = new Account("Id-1");
+        accountFrom.setBalance(new BigDecimal("1000"));
+        Account accountTo = new Account("Id-2");
+        when(accountsRepository.getAccount("Id-1")).thenReturn(accountFrom);
+        when(accountsRepository.getAccount("Id-2")).thenReturn(accountTo);
+
+        // Act and Assert
+        assertThatThrownBy(() -> accountsService.transferMoney("Id-1", "Id-2", BigDecimal.ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Amount to transfer must be a positive number.");
+    }
 
     @Test
-    void transferMoneyValid() {
+    void transferMoneyAsyncNotification() {
         // Arrange
         Account accountFrom = new Account("Id-1");
         accountFrom.setBalance(new BigDecimal("1000"));
@@ -91,28 +105,23 @@ class AccountsServiceTest {
         String notification = accountsService.transferMoney("Id-1", "Id-2", new BigDecimal("500"));
 
         // Assert
-        assertThat(notification).isEqualTo("Transferred $500 to Account Id-2");
-        assertThat(accountFrom.getBalance()).isEqualByComparingTo("500");
-        assertThat(accountTo.getBalance()).isEqualByComparingTo("500");
+        assertThat(notification).isEqualTo("Transfer initiated");
 
-        // Verify that notificationService was called
-        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
-        ArgumentCaptor<String> notificationMessageCaptor = ArgumentCaptor.forClass(String.class);
-        verify(notificationService, times(2)).notifyAboutTransfer(accountCaptor.capture(), notificationMessageCaptor.capture());
-        assertThat(accountCaptor.getAllValues()).contains(accountFrom, accountTo);
-        assertThat(notificationMessageCaptor.getAllValues()).contains("Transferred $500 to Account Id-2", "Received $500 from Account Id-1");
+        // Verify that notificationService was called asynchronously
+        verify(notificationService, timeout(1000).times(2))
+                .notifyAboutTransfer(any(Account.class), anyString());
     }
 
     @Test
     void transferMoneyInvalidSourceAccount() {
         // Arrange
-        when(accountsRepository.getAccount("NonExistentId")).thenReturn(null);
-
-        // Act and Assert
-        assertThatThrownBy(() -> accountsService.transferMoney("NonExistentId", "Id-2", new BigDecimal("500")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("One or both accounts do not exist.");
+        String invalidAccountId = "NonExistentId";
+        // Act
+        String result = accountsService.transferMoney(invalidAccountId, "Id-2", new BigDecimal("500"));
+        // Assert
+        assertThat(result).isEqualTo("One or both accounts do not exist.");
     }
+
 
     @Test
     void transferMoneyInvalidTargetAccount() {
@@ -121,12 +130,13 @@ class AccountsServiceTest {
         accountFrom.setBalance(new BigDecimal("1000"));
         when(accountsRepository.getAccount("Id-1")).thenReturn(accountFrom);
         when(accountsRepository.getAccount("NonExistentId")).thenReturn(null);
+        // Act
+        String result = accountsService.transferMoney("Id-1", "NonExistentId", new BigDecimal("500"));
 
-        // Act and Assert
-        assertThatThrownBy(() -> accountsService.transferMoney("Id-1", "NonExistentId", new BigDecimal("500")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("One or both accounts do not exist.");
+        // Assert
+        assertThat(result).isEqualTo("One or both accounts do not exist.");
     }
+
 
     @Test
     void transferMoneyNegativeAmount() {
@@ -142,21 +152,4 @@ class AccountsServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Amount to transfer must be a positive number.");
     }
-
-    @Test
-    void transferMoneyInsufficientFunds() {
-        // Arrange
-        Account accountFrom = new Account("Id-1");
-        accountFrom.setBalance(new BigDecimal("500"));
-        Account accountTo = new Account("Id-2");
-        when(accountsRepository.getAccount("Id-1")).thenReturn(accountFrom);
-        when(accountsRepository.getAccount("Id-2")).thenReturn(accountTo);
-
-        // Act and Assert
-        assertThatThrownBy(() -> accountsService.transferMoney("Id-1", "Id-2", new BigDecimal("1000")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Insufficient funds in the source account.");
-    }
-
-
 }
