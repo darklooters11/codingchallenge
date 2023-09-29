@@ -70,11 +70,6 @@ public class AccountsService {
             throw new IllegalArgumentException("One or both accounts do not exist.");
         }
 
-        // Check if the transfer amount is valid
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Amount to transfer must be a positive number.");
-        }
-
         // Determine a consistent order for locking accounts
         String firstAccountId = accountFromId.compareTo(accountToId) < 0 ? accountFromId : accountToId;
         String secondAccountId = accountFromId.compareTo(accountToId) < 0 ? accountToId : accountFromId;
